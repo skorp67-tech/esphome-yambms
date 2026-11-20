@@ -1,0 +1,119 @@
+# Anern EVO 10200 + two JBD BLE BMS (14S Li-ion)
+# ESP32-S3-N16R8, UART3 reserved for Pylontech RS485
+# Based on YamBMS 1.8.2 / ESPHome >= 2026.11.0
+
+logger:
+  level: INFO
+
+api:
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+
+substitutions:
+  hostname: 'anern-yambms'
+  friendly_name: 'Anern YamBMS'
+
+  yambms_id: '1'
+  yambms_name: 'Battery bank'
+  yambms_update_interval: '1s'
+  yambms_input_number_mode: 'slider'
+
+  # 14S Li-ion
+  yambms_battery_chemistry: '2'
+  yambms_cell_count: '14'
+  yambms_bulk_v: '56.5'
+  yambms_float_v: '56.5'
+  yambms_rebulk_v: '54.0'
+  yambms_eoc_timer: '30'
+  yambms_cutoff_timer: '180'
+
+  # Combined battery limits: two 120 Ah packs in parallel
+  yambms_max_requested_charge_current: '40'
+  yambms_max_requested_discharge_current: '120'
+
+  # Temperature derating table from the upstream YamBMS example
+  yambms_charging_rate_table: |
+    {
+      { -0.1, 0.00 },
+      {  0.0, 0.05 },
+      {  5.0, 0.12 },
+      { 10.0, 0.30 },
+      { 20.0, 0.50 },
+      { 25.0, 0.50 },
+      { 45.0, 0.50 },
+      { 50.0, 0.50 },
+      { 55.0, 0.50 },
+      { 60.0, 0.00 }
+    }
+  yambms_discharging_rate_table: |
+    {
+      {-30.0, 0.00 },
+      {-20.0, 0.50 },
+      {-10.0, 0.50 },
+      { -5.0, 0.50 },
+      {  0.0, 0.50 },
+      {  5.0, 0.50 },
+      { 45.0, 0.50 },
+      { 50.0, 0.50 },
+      { 55.0, 0.50 },
+      { 60.0, 0.00 }
+    }
+
+  yambms_update_service: 'true'
+  yambms_telemetry_service: 'false'
+  shunt_update_interval: '3s'
+  bms_update_interval: '3s'
+  enable_led_logging: 'false'
+  enable_health_logging: 'false'
+  loop_task_stack_size: '8192'
+
+packages:
+  remote_packages:
+    url: https://github.com/Sleeper85/esphome-yambms
+    ref: main
+    refresh: 60min
+    files:
+      # ESP32-S3, 16 MB flash; UART3 = GPIO13 TX / GPIO14 RX
+      - path: 'packages/board/board_ESP32-S3_Generic.yaml'
+
+      # BMS 1: LG pack, 120 Ah
+      - path: 'packages/bms/bms_combine_JBD_BLE_full.yaml'
+        vars:
+          bms_id: '1'
+          bms_name: 'JBD LG 120Ah'
+          bms_ble_mac_address: 'A5:C2:37:29:E0:B9'
+          bms_max_charge_current: '120'
+          bms_max_discharge_current: '120'
+          bms_cell_ovp: '4.150'
+          bms_cell_uvp: '2.800'
+          bms_balance_trigger_voltage: '0.010'
+          bms_cell_max_cycles: '1000.0'
+
+      # BMS 2: Philips pack, 120 Ah
+      - path: 'packages/bms/bms_combine_JBD_BLE_full.yaml'
+        vars:
+          bms_id: '2'
+          bms_name: 'JBD Philips 120Ah'
+          bms_ble_mac_address: 'A5:C2:37:7D:FC:B5'
+          bms_max_charge_current: '120'
+          bms_max_discharge_current: '120'
+          bms_cell_ovp: '4.150'
+          bms_cell_uvp: '2.800'
+          bms_balance_trigger_voltage: '0.010'
+          bms_cell_max_cycles: '1000.0'
+
+      # YamBMS combiner and charge/discharge logic
+      - path: 'packages/yambms/yambms.yaml'
+
+      # Pylontech RS485 protocol over UART3
+      - path: 'packages/yambms/yambms_rs485.yaml'
+        vars:
+          rs485_id: '1'
+          rs485_name: 'Anern RS485'
+          rs485_protocol: 'pylon'
+          rs485_update_timeout: '10s'
+          rs485_status_led_id: 'virtual_status_light'
+          rs485_uart_id: 'uart_esp_3'
+          rs485_uart_baud_rate: '9600'
