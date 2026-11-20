@@ -41,7 +41,7 @@ jobs:
         run: esphome compile anern_yambms.yaml
 
       - name: Upload firmware files
-        uses: actions/upload-artifact@v4
+        uses: .esphome/build/anern-yambms/build/firmware.ota.bin
         with:
           name: anern-yambms-firmware
           path: .esphome/build/anern-yambms/.pioenvs/anern-yambms/firmware*.bin
